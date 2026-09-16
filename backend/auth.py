@@ -15,9 +15,9 @@ login_sessions = {}
 def _do_login(email, password):
     try:
         s = requests.Session()
+        s.auth = (email, password)
         response = s.post(
             'https://api.worldquantbrain.com/authentication',
-            auth=(email, password),
             headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
         )
         print(f'Auth Status Code: {response.status_code}', flush=True)
@@ -90,8 +90,14 @@ def login_biometrics():
         
     s, loc = login_sessions[email]
     try:
-        response = s.post(f"https://api.worldquantbrain.com{loc}", headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
-        print(f"Biometrics completion status: {response.status_code}")
+        try:
+            response = s.post(f"https://api.worldquantbrain.com{loc}", headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+            print(f"Biometrics completion status: {response.status_code}")
+        except requests.exceptions.ConnectionError as ce:
+            print(f"Connection aborted by server: {ce}")
+            # Fallback: re-authenticate directly. Since s.auth is set, it will try logging in normally.
+            response = s.post('https://api.worldquantbrain.com/authentication', headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+            print(f"Fallback auth status: {response.status_code}")
         
         wq_token = s.cookies.get('t', '')
         if response.status_code in [200, 201, 204] or wq_token:
