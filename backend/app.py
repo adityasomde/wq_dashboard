@@ -35,8 +35,9 @@ def create_app():
         except:
             return jsonify({'error': 'Invalid token'}), 401
             
+        settings = request.json or {}
         expr = generate_expression()
-        task = simulate_expression.delay(expr, wq_token)
+        task = simulate_expression.delay(expr, wq_token, settings)
         
         return jsonify({
             "message": "Simulation triggered",
@@ -67,6 +68,35 @@ def create_app():
                 "passed_threshold": r.passed_threshold
             })
         return jsonify(data), 200
+
+    @app.route('/api/me', methods=['GET'])
+    def get_me():
+        import jwt
+        import requests
+        from auth import SECRET_KEY
+        
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return jsonify({'error': 'Missing token'}), 401
+        try:
+            token = auth_header.split(' ')[1]
+            decoded = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+            wq_token = decoded.get('wq_token', '')
+        except:
+            return jsonify({'error': 'Invalid token'}), 401
+            
+        headers = {
+            "Cookie": f"t={wq_token}",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        }
+        try:
+            res = requests.get('https://api.worldquantbrain.com/users/me', headers=headers)
+            if res.status_code == 200:
+                return jsonify(res.json()), 200
+            else:
+                return jsonify({'error': 'Failed to fetch from WQ'}), res.status_code
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
 
     @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')

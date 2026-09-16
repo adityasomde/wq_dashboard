@@ -1,18 +1,137 @@
+<template>
+  <div class="dashboard-ide">
+    <!-- Top Action Bar -->
+    <div class="ide-topbar">
+      <div class="selector-group">
+        <label>Type</label>
+        <select v-model="settings.type">
+          <option>REGULAR</option>
+          <option>SUPER</option>
+        </select>
+      </div>
+      <div class="selector-group">
+        <label>Region</label>
+        <select v-model="settings.region">
+          <option>USA</option>
+          <option>EUR</option>
+          <option>ASI</option>
+          <option>GLO</option>
+          <option>MIN</option>
+        </select>
+      </div>
+      <div class="selector-group">
+        <label>Universe</label>
+        <select v-model="settings.universe">
+          <option>TOP3000</option>
+          <option>TOP2000</option>
+          <option>TOP1000</option>
+          <option>TOP200</option>
+        </select>
+      </div>
+      <div class="selector-group">
+        <label>Dataset</label>
+        <select>
+          <option>Fundamental</option>
+        </select>
+      </div>
+      <div class="topbar-spacer"></div>
+      <button @click="triggerSimulation" class="simulate-btn" :disabled="currentTaskState === 'PENDING' || currentTaskState === 'STARTED'">
+        <span class="btn-icon">▶</span> Simulate
+      </button>
+    </div>
+
+    <!-- Code Editor Area -->
+    <div class="ide-editor">
+      <div class="editor-tabs">
+        <div class="tab active">alpha.py</div>
+      </div>
+      <textarea class="code-area" v-model="alphaCode" spellcheck="false" placeholder="# Type your Python Alpha here...
+def generate_alpha():
+    pass"></textarea>
+    </div>
+
+    <!-- Right Settings Panel -->
+    <div class="ide-settings">
+      <h3>Simulation Settings</h3>
+      <div class="setting-item">
+        <label>Delay</label>
+        <input type="number" v-model="settings.delay" />
+      </div>
+      <div class="setting-item">
+        <label>Decay</label>
+        <input type="number" v-model="settings.decay" />
+      </div>
+      <div class="setting-item">
+        <label>Truncation</label>
+        <input type="number" step="0.01" v-model="settings.truncation" />
+      </div>
+      <div class="setting-item">
+        <label>Pasteurization</label>
+        <select v-model="settings.pasteurization">
+          <option>ON</option>
+          <option>OFF</option>
+        </select>
+      </div>
+      <div class="setting-item">
+        <label>NanHandling</label>
+        <select v-model="settings.nanHandling">
+          <option>OFF</option>
+          <option>ON</option>
+        </select>
+      </div>
+
+      <div class="telemetry-box" v-if="currentTaskState">
+        <h4>Task Telemetry <span class="pulse-dot" v-if="currentTaskState !== 'SUCCESS' && currentTaskState !== 'FAILURE'"></span></h4>
+        <div class="t-row">
+          <span>State:</span> <strong :class="currentTaskState.toLowerCase()">{{ currentTaskState }}</strong>
+        </div>
+        <div class="t-row detail">
+          {{ currentTaskStatus }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Terminal / Results -->
+    <div class="ide-terminal">
+      <div class="terminal-tabs">
+        <div class="tab active">Results</div>
+        <div class="tab">Logs</div>
+      </div>
+      <div class="terminal-content">
+        <ResultsView />
+      </div>
+    </div>
+  </div>
+</template>
+
 <script setup>
-import { ref, onUnmounted } from 'vue'
+import { ref, reactive, onUnmounted } from 'vue'
 import axios from 'axios'
 import { useAuthStore } from '../stores/auth'
+import ResultsView from './ResultsView.vue'
 
 const authStore = useAuthStore()
 const message = ref('')
 const currentTaskState = ref('')
 const currentTaskStatus = ref('')
+const alphaCode = ref('')
+
+const settings = reactive({
+  type: 'REGULAR',
+  region: 'USA',
+  universe: 'TOP3000',
+  delay: 1,
+  decay: 0,
+  truncation: 0.08,
+  pasteurization: 'ON',
+  nanHandling: 'OFF'
+})
 
 let pollInterval = null
 
 const triggerSimulation = async () => {
   try {
-    const res = await axios.post('http://localhost:5000/api/simulate', {}, {
+    const res = await axios.post('http://localhost:5000/api/simulate', settings, {
       headers: { Authorization: `Bearer ${authStore.token}` }
     })
     message.value = res.data.message
@@ -49,176 +168,213 @@ onUnmounted(() => {
 })
 </script>
 
-<template>
-  <div class="dashboard">
-    <div class="control-panel glass-panel">
-      <div class="panel-header">
-        <h2>Simulation Engine</h2>
-        <span class="badge ready">Ready</span>
-      </div>
-      <p class="panel-desc">Deploy your generated Python Alpha into the WorldQuant BRAIN pipeline. This will run Celery asynchronously.</p>
-      <button @click="triggerSimulation" class="action-btn">
-        <span class="btn-icon">🚀</span> Launch Simulation
-      </button>
-      <p v-if="message" class="system-msg">{{ message }}</p>
-    </div>
-    
-    <div v-if="currentTaskState" class="status-panel glass-panel" :class="{'is-running': currentTaskState === 'PENDING' || currentTaskState === 'STARTED'}">
-      <h3>
-        <span class="pulse-dot" v-if="currentTaskState !== 'SUCCESS' && currentTaskState !== 'FAILURE'"></span> 
-        Live Telemetry
-      </h3>
-      <div class="telemetry-grid">
-        <div class="t-card">
-          <span class="t-label">Task State</span>
-          <span class="t-value" :class="currentTaskState.toLowerCase()">{{ currentTaskState }}</span>
-        </div>
-        <div class="t-card">
-          <span class="t-label">Detailed Status</span>
-          <span class="t-value detail">{{ currentTaskStatus }}</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
-
 <style scoped>
-.dashboard {
-  display: flex;
-  flex-direction: column;
-  gap: 30px;
-}
-
-.control-panel, .status-panel {
-  padding: 30px;
-}
-
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-}
-
-.panel-header h2 {
-  margin: 0;
-  color: #fff;
-  font-weight: 300;
-  letter-spacing: 1px;
-}
-
-.badge {
-  padding: 5px 12px;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-.badge.ready {
-  background: rgba(56, 239, 125, 0.2);
-  color: #38ef7d;
-  border: 1px solid rgba(56, 239, 125, 0.4);
-}
-
-.panel-desc {
-  color: var(--text-secondary);
-  line-height: 1.6;
-  margin-bottom: 25px;
-}
-
-.action-btn {
-  background: linear-gradient(45deg, #11998e, #38ef7d);
-  color: #000;
-  border: none;
-  border-radius: 8px;
-  padding: 15px 30px;
-  font-size: 1.1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.action-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(56, 239, 125, 0.3);
-}
-
-.system-msg {
-  margin-top: 15px;
-  color: var(--accent-color);
-}
-
-/* Status Panel */
-.status-panel {
-  transition: box-shadow 0.5s ease;
-}
-.status-panel.is-running {
-  box-shadow: 0 0 20px rgba(0, 242, 254, 0.2), inset 0 0 10px rgba(0, 242, 254, 0.1);
-  border-color: rgba(0, 242, 254, 0.3);
-}
-
-.status-panel h3 {
-  color: #fff;
-  font-weight: 300;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 0;
-  margin-bottom: 25px;
-}
-
-.telemetry-grid {
+.dashboard-ide {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 300px;
+  grid-template-rows: 50px 1fr 300px;
+  height: 100%;
+  width: 100%;
+}
+
+.ide-topbar {
+  grid-column: 1 / 3;
+  grid-row: 1 / 2;
+  display: flex;
+  align-items: center;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  padding: 0 20px;
   gap: 20px;
 }
 
-.t-card {
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid var(--glass-border);
-  border-radius: 8px;
-  padding: 20px;
+.selector-group {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
 }
 
-.t-label {
-  font-size: 0.85rem;
+.selector-group label {
+  font-size: 0.8rem;
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 1px;
 }
 
-.t-value {
-  font-size: 1.2rem;
-  font-weight: 600;
+.selector-group select {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  outline: none;
 }
-.t-value.detail {
+
+.topbar-spacer {
+  flex: 1;
+}
+
+.simulate-btn {
+  background: var(--success-color);
+  color: #fff;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: opacity 0.2s;
+}
+
+.simulate-btn:hover:not(:disabled) {
+  opacity: 0.8;
+}
+
+.simulate-btn:disabled {
+  background: var(--border-color);
+  cursor: not-allowed;
+}
+
+.ide-editor {
+  grid-column: 1 / 2;
+  grid-row: 2 / 3;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-color);
+}
+
+.editor-tabs, .terminal-tabs {
+  display: flex;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tab {
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-right: 1px solid var(--border-color);
+}
+
+.tab.active {
+  background: var(--bg-primary);
+  color: var(--accent-color);
+  border-top: 2px solid var(--accent-color);
+}
+
+.code-area {
+  flex: 1;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: none;
+  padding: 20px;
+  font-family: 'Fira Code', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+}
+
+.ide-settings {
+  grid-column: 2 / 3;
+  grid-row: 2 / 4;
+  background: var(--bg-secondary);
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.ide-settings h3 {
+  margin-top: 0;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+}
+
+.setting-item {
+  margin-bottom: 15px;
+}
+
+.setting-item label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 5px;
+}
+
+.setting-item input, .setting-item select {
+  width: 100%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 6px;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.telemetry-box {
+  margin-top: 30px;
+  padding: 15px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+
+.telemetry-box h4 {
+  margin-top: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+.t-row {
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+
+.t-row.detail {
   font-family: monospace;
-  color: #a0aab2;
+  color: var(--accent-color);
   word-break: break-all;
 }
 
-.success { color: #38ef7d; }
-.failure { color: #ff4b4b; }
+.success { color: var(--success-color); }
+.failure { color: var(--danger-color); }
 .pending, .started { color: var(--accent-color); }
 
 .pulse-dot {
-  width: 12px;
-  height: 12px;
+  width: 8px;
+  height: 8px;
   background-color: var(--accent-color);
   border-radius: 50%;
-  box-shadow: 0 0 0 0 rgba(0, 242, 254, 0.7);
   animation: pulse 1.5s infinite;
 }
 
 @keyframes pulse {
-  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 242, 254, 0.7); }
-  70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(0, 242, 254, 0); }
-  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 242, 254, 0); }
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(88, 166, 255, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(88, 166, 255, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(88, 166, 255, 0); }
+}
+
+.ide-terminal {
+  grid-column: 1 / 2;
+  grid-row: 3 / 4;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-primary);
+}
+
+.terminal-content {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
 }
 </style>

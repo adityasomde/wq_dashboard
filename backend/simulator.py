@@ -7,10 +7,10 @@ from models import db, AlphaResult
 celery_app = Celery('wq_tasks', broker='redis://localhost:6379/0', backend='redis://localhost:6379/0')
 
 @celery_app.task(bind=True)
-def simulate_expression(self, expression_string, wq_token=''):
+def simulate_expression(self, expression_string, wq_token='', settings=None):
     """
     Submits a generated expression to the BRAIN /simulate endpoint.
-    Strict simulation variables: Equity, USA, TOP3000, Delay 1, Truncation 0.01.
+    Accepts dynamic settings from the Vue frontend.
     """
     # Note: Flask app context is required for database operations.
     from app import create_app
@@ -22,19 +22,23 @@ def simulate_expression(self, expression_string, wq_token=''):
         db.session.commit()
         record_id = result_record.id
 
+    if settings is None:
+        settings = {}
+
     simulation_payload = {
-        "type": "REGULAR",
+        "type": settings.get('type', "REGULAR"),
         "settings": {
             "instrumentType": "EQUITY",
-            "region": "USA",
-            "universe": "TOP3000",
-            "delay": 1,
-            "decay": 0,
+            "region": settings.get('region', "USA"),
+            "universe": settings.get('universe', "TOP3000"),
+            "delay": int(settings.get('delay', 1)),
+            "decay": int(settings.get('decay', 0)),
             "neutralization": "NONE",
-            "truncation": 0.01,
-            "pasteurization": "ON",
+            "truncation": float(settings.get('truncation', 0.08)),
+            "pasteurization": settings.get('pasteurization', "ON"),
             "testPeriod": "P2Y",
-            "language": "PYTHON"
+            "language": "PYTHON",
+            "nanHandling": settings.get('nanHandling', "OFF")
         },
         "regular": expression_string
     }

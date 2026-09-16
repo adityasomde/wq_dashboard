@@ -27,13 +27,14 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="results glass-panel">
-    <div class="results-header">
-      <h2>Simulation Results Engine</h2>
-      <button @click="fetchResults" class="refresh-btn">⟳ Refresh</button>
+  <div class="results-terminal">
+    <div class="results-toolbar">
+      <button @click="fetchResults" class="refresh-btn">
+        <span class="icon">⟳</span> Refresh Results
+      </button>
+      <span v-if="loading" class="loading-text">Querying database...</span>
+      <span v-if="error" class="error-msg">{{ error }}</span>
     </div>
-    <p v-if="loading" class="loading-text">Querying database...</p>
-    <p v-if="error" class="error-msg">{{ error }}</p>
     
     <div class="table-container" v-if="!loading && !error">
       <table>
@@ -69,41 +70,42 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.results {
-  padding: 30px;
-}
-
-.results-header {
+.results-terminal {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 25px;
+  flex-direction: column;
+  height: 100%;
 }
 
-h2 {
-  margin: 0;
-  color: #fff;
-  font-weight: 300;
-  letter-spacing: 1px;
+.results-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 10px 20px;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .refresh-btn {
-  background: rgba(0, 242, 254, 0.1);
+  background: rgba(89, 205, 213, 0.1);
   border: 1px solid var(--accent-color);
   color: var(--accent-color);
-  padding: 8px 15px;
-  border-radius: 8px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.8rem;
   cursor: pointer;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .refresh-btn:hover {
-  background: rgba(0, 242, 254, 0.2);
-  box-shadow: 0 0 10px rgba(0, 242, 254, 0.3);
+  background: rgba(89, 205, 213, 0.2);
 }
 
 .table-container {
-  overflow-x: auto;
+  flex: 1;
+  overflow-y: auto;
 }
 
 table {
@@ -113,18 +115,21 @@ table {
 }
 
 th {
-  padding: 15px;
+  padding: 10px 20px;
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  border-bottom: 1px solid var(--glass-border);
-  white-space: nowrap;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  background: var(--bg-primary);
+  z-index: 10;
 }
 
 td {
-  padding: 15px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border-color);
   vertical-align: middle;
 }
 
@@ -133,13 +138,13 @@ tr {
 }
 
 tr:hover {
-  background-color: rgba(255, 255, 255, 0.05);
+  background: var(--bg-secondary);
 }
 
 .code-cell {
-  font-family: monospace;
-  font-size: 0.85rem;
-  color: #a0aab2;
+  font-family: 'Fira Code', monospace;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
   max-width: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -147,37 +152,40 @@ tr:hover {
 }
 
 .metric {
-  font-family: monospace;
-  font-size: 1rem;
+  font-family: 'Fira Code', monospace;
+  font-size: 0.9rem;
 }
 
-.metric.good { color: #38ef7d; }
-.metric.bad { color: #ff4b4b; }
+.metric.good { color: var(--success-color); }
+.metric.bad { color: var(--danger-color); }
 
 .badge {
-  padding: 5px 10px;
-  border-radius: 12px;
-  font-size: 0.75rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
   font-weight: 600;
 }
 
 .badge-pass {
-  background: rgba(56, 239, 125, 0.1);
-  color: #38ef7d;
-  border: 1px solid rgba(56, 239, 125, 0.3);
+  background: rgba(71, 183, 74, 0.1);
+  color: var(--success-color);
+  border: 1px solid rgba(71, 183, 74, 0.3);
 }
 
 .badge-fail {
-  background: rgba(255, 75, 75, 0.1);
-  color: #ff4b4b;
-  border: 1px solid rgba(255, 75, 75, 0.3);
+  background: rgba(224, 81, 83, 0.1);
+  color: var(--danger-color);
+  border: 1px solid rgba(224, 81, 83, 0.3);
 }
 
 .error-msg {
-  color: #ff4b4b;
+  color: var(--danger-color);
+  font-size: 0.85rem;
 }
+
 .loading-text {
   color: var(--accent-color);
+  font-size: 0.85rem;
   animation: pulse 1.5s infinite;
 }
 </style>
