@@ -11,22 +11,17 @@
       </div>
       <div class="selector-group">
         <label>Region</label>
-        <select v-model="settings.region">
-          <option>USA</option>
-          <option>EUR</option>
-          <option>ASI</option>
-          <option>GLO</option>
-          <option>MIN</option>
+        <select v-model="settings.region" v-if="schema.region?.choices" :disabled="schema.region.blocked">
+          <option v-for="c in schema.region.choices" :key="c.value" :value="c.value">{{ c.label || c.value }}</option>
         </select>
+        <select v-else v-model="settings.region"><option>USA</option></select>
       </div>
       <div class="selector-group">
         <label>Universe</label>
-        <select v-model="settings.universe">
-          <option>TOP3000</option>
-          <option>TOP2000</option>
-          <option>TOP1000</option>
-          <option>TOP200</option>
+        <select v-model="settings.universe" v-if="schema.universe?.choices" :disabled="schema.universe.blocked">
+          <option v-for="c in schema.universe.choices" :key="c.value" :value="c.value">{{ c.label || c.value }}</option>
         </select>
+        <select v-else v-model="settings.universe"><option>TOP3000</option></select>
       </div>
       <div class="selector-group">
         <label>Dataset</label>
@@ -43,41 +38,51 @@
     <!-- Code Editor Area -->
     <div class="ide-editor">
       <div class="editor-tabs">
-        <div class="tab active">alpha.py</div>
+        <div class="tab active">alpha.py <span v-if="parentId" class="parent-badge">(Forked from #{{ parentId }})</span></div>
       </div>
-      <textarea class="code-area" v-model="alphaCode" spellcheck="false" placeholder="# Type your Python Alpha here...
+      <div class="code-area-wrapper">
+        <codemirror
+          v-model="alphaCode"
+          placeholder="# Type your Python Alpha here...
 def generate_alpha():
-    pass"></textarea>
+    pass"
+          :style="{ height: '100%', width: '100%' }"
+          :autofocus="true"
+          :indent-with-tab="true"
+          :tab-size="4"
+          :extensions="extensions"
+          class="cm-custom-theme"
+        />
+      </div>
     </div>
 
     <!-- Right Settings Panel -->
     <div class="ide-settings">
       <h3>Simulation Settings</h3>
-      <div class="setting-item">
-        <label>Delay</label>
-        <input type="number" v-model="settings.delay" />
+      
+      <div v-if="schema && Object.keys(schema).length > 0">
+        <template v-for="(field, key) in schema" :key="key">
+          <!-- Only show fields not already in the topbar -->
+          <div class="setting-item" v-if="!['region', 'universe', 'instrumentType'].includes(key)">
+            <label>{{ field.label || key }}</label>
+            
+            <select v-if="field.choices" v-model="settings[key]" :disabled="field.blocked">
+              <option v-for="c in field.choices" :key="c.value" :value="c.value">{{ c.label || c.value }}</option>
+            </select>
+            
+            <input v-else-if="field.type === 'integer' || field.type === 'float'" 
+                   type="number" 
+                   :step="field.type === 'integer' ? '1' : '0.01'" 
+                   :min="field.min" :max="field.max"
+                   v-model="settings[key]" 
+                   :disabled="field.blocked"/>
+                   
+            <input v-else type="text" v-model="settings[key]" :disabled="field.blocked" />
+          </div>
+        </template>
       </div>
-      <div class="setting-item">
-        <label>Decay</label>
-        <input type="number" v-model="settings.decay" />
-      </div>
-      <div class="setting-item">
-        <label>Truncation</label>
-        <input type="number" step="0.01" v-model="settings.truncation" />
-      </div>
-      <div class="setting-item">
-        <label>Pasteurization</label>
-        <select v-model="settings.pasteurization">
-          <option>ON</option>
-          <option>OFF</option>
-        </select>
-      </div>
-      <div class="setting-item">
-        <label>NanHandling</label>
-        <select v-model="settings.nanHandling">
-          <option>OFF</option>
-          <option>ON</option>
-        </select>
+      <div v-else class="setting-item">
+        <p style="color: var(--text-secondary); font-size: 0.8rem;">Loading dynamic schema from WQ API...</p>
       </div>
 
       <div class="telemetry-box" v-if="currentTaskState">
@@ -98,23 +103,34 @@ def generate_alpha():
         <div class="tab">Logs</div>
       </div>
       <div class="terminal-content">
-        <ResultsView />
+        <ResultsView @load-alpha="handleLoadAlpha" />
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onUnmounted } from 'vue'
+import { ref, reactive, onUnmounted, watch, onMounted } from 'vue'
 import axios from 'axios'
 import { useAuthStore } from '../stores/auth'
 import ResultsView from './ResultsView.vue'
+import { Codemirror } from 'vue-codemirror'
+import { python } from '@codemirror/lang-python'
+import { oneDark } from '@codemirror/theme-one-dark'
+
+const extensions = [python(), oneDark]
 
 const authStore = useAuthStore()
 const message = ref('')
 const currentTaskState = ref('')
 const currentTaskStatus = ref('')
 const alphaCode = ref('')
+const parentId = ref(null)
+
+const handleLoadAlpha = (alpha) => {
+  alphaCode.value = alpha.expression_string
+  parentId.value = alpha.id
+}
 
 const settings = reactive({
   type: 'REGULAR',
@@ -129,9 +145,37 @@ const settings = reactive({
 
 let pollInterval = null
 
+const schema = ref({})
+
+const fetchSchema = async () => {
+  try {
+    const res = await axios.post('http://localhost:5000/api/schema', settings, {
+      headers: { Authorization: `Bearer ${authStore.token}` }
+    })
+    schema.value = res.data
+  } catch (err) {
+    console.error("Failed to load schema", err)
+  }
+}
+
+watch(settings, (newVal, oldVal) => {
+  // Avoid infinite loops if possible, but fetch schema when settings change
+  // to update interdependent dropdowns (like region -> universe)
+  fetchSchema()
+}, { deep: true })
+
+onMounted(() => {
+  fetchSchema()
+})
+
 const triggerSimulation = async () => {
   try {
-    const res = await axios.post('http://localhost:5000/api/simulate', settings, {
+    const payload = {
+      settings: settings,
+      alphaCode: alphaCode.value,
+      parentId: parentId.value
+    }
+    const res = await axios.post('http://localhost:5000/api/simulate', payload, {
       headers: { Authorization: `Bearer ${authStore.token}` }
     })
     message.value = res.data.message
@@ -264,17 +308,27 @@ onUnmounted(() => {
   border-top: 2px solid var(--accent-color);
 }
 
-.code-area {
+.code-area-wrapper {
   flex: 1;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  border: none;
-  padding: 20px;
+  background: #282c34;
+  overflow: auto;
+}
+
+.cm-custom-theme {
+  height: 100%;
   font-family: 'Fira Code', monospace;
   font-size: 14px;
-  line-height: 1.5;
-  resize: none;
-  outline: none;
+}
+.cm-custom-theme .cm-scroller {
+  padding: 10px;
+}
+.parent-badge {
+  background: var(--accent-color);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  margin-left: 10px;
 }
 
 .ide-settings {

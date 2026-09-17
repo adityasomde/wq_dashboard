@@ -7,7 +7,7 @@ from models import db, AlphaResult
 celery_app = Celery('wq_tasks', broker='redis://localhost:6379/0', backend='redis://localhost:6379/0')
 
 @celery_app.task(bind=True)
-def simulate_expression(self, expression_string, wq_token='', settings=None):
+def simulate_expression(self, expression_string, wq_token='', settings=None, parent_id=None):
     """
     Submits a generated expression to the BRAIN /simulate endpoint.
     Accepts dynamic settings from the Vue frontend.
@@ -17,7 +17,7 @@ def simulate_expression(self, expression_string, wq_token='', settings=None):
     flask_app = create_app()
     
     with flask_app.app_context():
-        result_record = AlphaResult(expression_string=expression_string)
+        result_record = AlphaResult(expression_string=expression_string, parent_id=parent_id)
         db.session.add(result_record)
         db.session.commit()
         record_id = result_record.id

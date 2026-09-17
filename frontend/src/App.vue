@@ -35,12 +35,12 @@ onMounted(() => {
     <aside class="sidebar">
       <div class="sidebar-logo">WQ BRAIN</div>
       <nav class="sidebar-nav">
-        <a href="#" class="active"><span class="icon">⛭</span> Simulate</a>
-        <a href="#"><span class="icon">Σ</span> Alphas</a>
-        <a href="#"><span class="icon">🎓</span> Learn</a>
-        <a href="#"><span class="icon">📊</span> Data</a>
-        <a href="#"><span class="icon">🔬</span> Labs</a>
-        <a href="#"><span class="icon">💡</span> Genius</a>
+        <router-link to="/" active-class="active" exact><span class="icon">⛭</span> Simulate</router-link>
+        <router-link to="/results" active-class="active"><span class="icon">Σ</span> Old Results</router-link>
+        <router-link to="/vault" active-class="active"><span class="icon">🏛️</span> Vault</router-link>
+        <router-link to="/data-explorer" active-class="active"><span class="icon">📊</span> Data</router-link>
+        <router-link to="/labs" active-class="active"><span class="icon">🔬</span> Labs</router-link>
+        <router-link to="/ai-settings" active-class="active"><span class="icon">💡</span> AI Settings</router-link>
         <a href="#"><span class="icon">🏆</span> Competitions (6)</a>
         <a href="#"><span class="icon">👥</span> Community</a>
       </nav>
@@ -52,6 +52,7 @@ onMounted(() => {
       <header class="topnav">
         <div class="nav-links">
           <router-link to="/">Dashboard</router-link>
+          <router-link to="/data-explorer">Data Explorer</router-link>
           <a href="#">Courses</a>
           <a href="#">Documentation</a>
           <a href="#">Operators</a>

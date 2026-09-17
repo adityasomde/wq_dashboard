@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, defineEmits } from 'vue'
 import axios from 'axios'
 import { useAuthStore } from '../stores/auth'
 
@@ -7,6 +7,12 @@ const authStore = useAuthStore()
 const results = ref([])
 const loading = ref(true)
 const error = ref('')
+
+const emit = defineEmits(['load-alpha'])
+
+const handleRowClick = (res) => {
+  emit('load-alpha', res)
+}
 
 const fetchResults = async () => {
   try {
@@ -41,6 +47,7 @@ onMounted(() => {
         <thead>
           <tr>
             <th>ID</th>
+            <th>Parent</th>
             <th>Code Logic</th>
             <th>IS Sharpe</th>
             <th>OS Sharpe</th>
@@ -50,8 +57,9 @@ onMounted(() => {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="res in results" :key="res.id" :class="{ 'row-passed': res.passed_threshold }">
+          <tr v-for="res in results" :key="res.id" :class="{ 'row-passed': res.passed_threshold, 'clickable-row': true }" @click="handleRowClick(res)">
             <td>#{{ res.id }}</td>
+            <td><span v-if="res.parent_id" class="badge">#{{ res.parent_id }}</span><span v-else>---</span></td>
             <td class="code-cell">{{ res.expression_string }}</td>
             <td class="metric">{{ res.is_sharpe?.toFixed(2) ?? '---' }}</td>
             <td class="metric" :class="{'good': res.os_sharpe > 1, 'bad': res.os_sharpe < 0}">{{ res.os_sharpe?.toFixed(2) ?? '---' }}</td>
@@ -137,8 +145,13 @@ tr {
   transition: background-color 0.2s;
 }
 
-tr:hover {
+tr.clickable-row {
+  cursor: pointer;
+}
+
+tr.clickable-row:hover {
   background: var(--bg-secondary);
+  box-shadow: inset 2px 0 0 var(--accent-color);
 }
 
 .code-cell {
